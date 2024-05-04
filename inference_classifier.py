@@ -1,8 +1,8 @@
 import pickle
-import cv2
 import mediapipe as mp
 import numpy as np
 import pygame
+import streamlit as st
 
 # Initialize pygame
 pygame.init()
@@ -13,9 +13,6 @@ pygame.mixer.music.load(r"danger-alarm-23793.mp3")
 # Load the model
 model_dict = pickle.load(open(r"model_xgboost.p", 'rb'))
 model = model_dict['model']
-
-# Video capture
-cap = cv2.VideoCapture(0)
 
 # MediaPipe setup
 mp_hands = mp.solutions.hands
@@ -34,79 +31,96 @@ disarm_timer = 0
 # Variable to keep track of whether the sound is playing
 sound_playing = False
 
-while True:
-    
-    data_aux = []
-    x_ = []
-    y_ = []
+# Streamlit app function
+def main():
+    st.title("Sign Language Detector")
+    st.write("Showing live sign language detection")
 
-    ret, frame = cap.read()
-    
-    H, W, _ = frame.shape
+    # Video capture
+    cap = cv2.VideoCapture(0)
 
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    # Infinite loop to capture video frames
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            st.error("Failed to capture video.")
+            break
 
-    results = hands.process(frame_rgb)
-    if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            mp_drawing.draw_landmarks(
-                frame,
-                hand_landmarks,
-                mp_hands.HAND_CONNECTIONS,
-                mp_drawing_styles.get_default_hand_landmarks_style(),
-                mp_drawing_styles.get_default_hand_connections_style())
+        data_aux = []
+        x_ = []
+        y_ = []
 
-        for hand_landmarks in results.multi_hand_landmarks:
-            for i in range(len(hand_landmarks.landmark)):
-                x = hand_landmarks.landmark[i].x
-                y = hand_landmarks.landmark[i].y
+        H, W, _ = frame.shape
 
-                x_.append(x)
-                y_.append(y)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            for i in range(len(hand_landmarks.landmark)):
-                x = hand_landmarks.landmark[i].x
-                y = hand_landmarks.landmark[i].y
-                data_aux.append(x - min(x_))
-                data_aux.append(y - min(y_))
+        results = hands.process(frame_rgb)
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                mp_drawing.draw_landmarks(
+                    frame,
+                    hand_landmarks,
+                    mp_hands.HAND_CONNECTIONS,
+                    mp_drawing_styles.get_default_hand_landmarks_style(),
+                    mp_drawing_styles.get_default_hand_connections_style())
 
-        # Calculate bounding box
-        x1 = int(min(x_) * W) - 10
-        y1 = int(min(y_) * H) - 10
-        
-        x2 = int(max(x_) * W) - 10
-        y2 = int(max(y_) * H) - 10
+            for hand_landmarks in results.multi_hand_landmarks:
+                for i in range(len(hand_landmarks.landmark)):
+                    x = hand_landmarks.landmark[i].x
+                    y = hand_landmarks.landmark[i].y
 
-        # Predict gesture
-        prediction = model.predict([np.asarray(data_aux)])
-        predicted_character = labels_dict.get(int(prediction[0]), None)
+                    x_.append(x)
+                    y_.append(y)
 
-        # Display the predicted character and disarm if 'C' is detected
-        if predicted_character == 'C':
-            disarm_timer += 5
-            cv2.putText(frame, "Danger", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 255, 0), 3, cv2.LINE_AA)
-            if disarm_timer > 30:  # Disarm for 30 frames
-                system_armed = False
-                disarm_timer = 0
-                if not sound_playing:
-                    pygame.mixer.music.play(-1)  # Loop the music
-                    sound_playing = True
-        else:
-            disarm_timer = 0
-            if system_armed:
-                pass  # Do nothing
+                for i in range(len(hand_landmarks.landmark)):
+                    x = hand_landmarks.landmark[i].x
+                    y = hand_landmarks.landmark[i].y
+                    data_aux.append(x - min(x_))
+                    data_aux.append(y - min(y_))
+
+            # Calculate bounding box
+            x1 = int(min(x_) * W) - 10
+            y1 = int(min(y_) * H) - 10
+            
+            x2 = int(max(x_) * W) - 10
+            y2 = int(max(y_) * H) - 10
+
+            # Predict gesture
+            prediction = model.predict([np.asarray(data_aux)])
+            predicted_character = labels_dict.get(int(prediction[0]), None)
+
+            # Display the predicted character and disarm if 'C' is detected
+            if predicted_character == 'C':
+                disarm_timer += 5
+                st.write("Danger")
+                if disarm_timer > 30:  # Disarm for 30 frames
+                    system_armed = False
+                    disarm_timer = 0
+                    if not sound_playing:
+                        pygame.mixer.music.play(-1)  # Loop the music
+                        sound_playing = True
             else:
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 0), 4)
-                cv2.putText(frame, "", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 0), 3, cv2.LINE_AA)
-                if sound_playing:
-                    pygame.mixer.music.stop()
-                    sound_playing = False
+                disarm_timer = 0
+                if system_armed:
+                    pass  # Do nothing
+                else:
+                    st.write("")  # Display nothing
+                    if sound_playing:
+                        pygame.mixer.music.stop()
+                        sound_playing = False
 
+        # Display the frame
+        st.image(frame, channels="BGR", use_column_width=True)
 
-    cv2.imshow('frame', frame)
-    key = cv2.waitKey(1) & 0xFF
-    if key == ord('q'):
-        break
+        # Break the loop if 'q' key is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-cap.release()
-cv2.destroyAllWindows()
+    # Release the video capture and close OpenCV windows
+    cap.release()
+    cv2.destroyAllWindows()
+
+# Run the Streamlit app
+if __name__ == "__main__":
+    main()
+
