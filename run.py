@@ -38,5 +38,5 @@ def main():
     st.markdown("<li>Satya Prem</li>", unsafe_allow_html=True)
     st.markdown("</ul>", unsafe_allow_html=True)
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     main()
