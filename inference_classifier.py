@@ -11,7 +11,7 @@ pygame.init()
 pygame.mixer.music.load(r"danger-alarm-23793.mp3")
 
 # Load the model
-model_dict = pickle.load(open(r"C:\Users\srini\Desktop\model_xgboost.p", 'rb'))
+model_dict = pickle.load(open(r"model_xgboost.p", 'rb'))
 model = model_dict['model']
 
 # Video capture
