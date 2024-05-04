@@ -8,7 +8,7 @@ import pygame
 pygame.init()
 
 # Load the MP3 file
-pygame.mixer.music.load(r"C:\Users\srini\Desktop\danger-alarm-23793.mp3")
+pygame.mixer.music.load(r"danger-alarm-23793.mp3")
 
 # Load the model
 model_dict = pickle.load(open(r"C:\Users\srini\Desktop\model_xgboost.p", 'rb'))
