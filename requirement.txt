@@ -1,1 +1,4 @@
-
+mediapipe
+numpy
+pygame
+streamlit
